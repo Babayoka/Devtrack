@@ -5,14 +5,39 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
+type Category =
+  | "Learning"
+  | "Frontend"
+  | "Backend"
+  | "Bug Fix"
+  | "Documentation"
+  | "Other";
+
+type Priority = "Low" | "Medium" | "High";
+
 type Task = {
   id: string;
   title: string;
   completed: boolean;
+  category: Category;
+  priority: Priority;
 };
 
 export default function Dashboard() {
   const router = useRouter();
+  
+const [newTaskCategory, setNewTaskCategory] =
+  useState<Category>("Learning");
+
+const [newTaskPriority, setNewTaskPriority] =
+  useState<Priority>("Medium");
+
+const [categoryFilter, setCategoryFilter] =
+  useState("All");
+
+const [priorityFilter, setPriorityFilter] =
+  useState("All");
+
   const [tasks, setTasks] = useState<Task[]>([]);
   const [newTask, setNewTask] = useState("");
   const [loading, setLoading] = useState(true);
@@ -39,7 +64,7 @@ export default function Dashboard() {
 
     const { data, error } = await supabase
       .from("tasks")
-      .select("id, title, completed")
+      .select("id, title, completed, category, priority")
       .order("created_at", { ascending: true });
 
     if (error) {
@@ -70,8 +95,10 @@ export default function Dashboard() {
         title,
         completed: false,
         user_id: userId,
+        category: newTaskCategory,
+        priority: newTaskPriority,
       })
-      .select("id, title, completed")
+      .select("id, title, completed, category, priority")
       .single();
 
     if (error) {
@@ -79,6 +106,8 @@ export default function Dashboard() {
     } else {
       setTasks((current) => [...current, data]);
       setNewTask("");
+      setNewTaskCategory("Learning");
+    setNewTaskPriority("Medium");
     }
 
     setSaving(false);
@@ -123,6 +152,18 @@ export default function Dashboard() {
 
     setTasks((current) => current.filter((task) => task.id !== id));
   }
+  
+  const filteredTasks = tasks.filter((task) => {
+    const matchesCategory =
+      categoryFilter === "All" ||
+      task.category === categoryFilter;
+
+    const matchesPriority =
+      priorityFilter === "All" ||
+      task.priority === priorityFilter;
+
+    return matchesCategory && matchesPriority;
+  });
 
   const completedCount = tasks.filter((task) => task.completed).length;
   
@@ -143,22 +184,22 @@ export default function Dashboard() {
       <div className="mx-auto max-w-5xl px-6 py-12">
         <header className="mb-12 flex items-center justify-between">
           
-          <div className="flex items-center gap-3">
-            <div className="hidden rounded-xl border border-zinc-800 px-4 py-3 sm:block">
-              <p className="text-xs text-zinc-500">STATUS</p>
-              <p className="mt-1 text-sm font-medium text-emerald-400">
-                ● Building
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleSignOut}
-              className="rounded-xl border border-zinc-700 px-4 py-3 text-sm font-medium text-zinc-200 transition hover:border-red-400 hover:text-red-400"
-            >
-              Log out
-            </button>
+        <div className="flex items-center gap-3">
+          <div className="hidden rounded-xl border border-zinc-800 px-4 py-3 sm:block">
+            <p className="text-xs text-zinc-500">STATUS</p>
+            <p className="mt-1 text-sm font-medium text-emerald-400">
+              ● Building
+            </p>
           </div>
+
+          <button
+            type="button"
+            onClick={handleSignOut}
+            className="rounded-xl border border-zinc-700 px-4 py-3 text-sm font-medium text-zinc-200 transition hover:border-red-400 hover:text-red-400"
+          >
+            Log out
+          </button>
+        </div>
 
         </header>
 
@@ -197,13 +238,41 @@ export default function Dashboard() {
             </span>
           </div>
 
-          <form className="mb-6 flex gap-3" onSubmit={addTask}>
+          <form className="mb-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap" onSubmit={addTask}>
             <input
               value={newTask}
               onChange={(event) => setNewTask(event.target.value)}
               placeholder="What are you building next?"
               className="min-w-0 flex-1 rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm outline-none placeholder:text-zinc-600 focus:border-emerald-400"
             />
+                        
+            <select
+              value={newTaskCategory}
+              onChange={(event) =>
+                setNewTaskCategory(event.target.value as Category)
+              }
+              className="rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-3 text-sm text-white outline-none focus:border-emerald-400"
+            >
+              <option value="Learning">Learning</option>
+              <option value="Frontend">Frontend</option>
+              <option value="Backend">Backend</option>
+              <option value="Bug Fix">Bug Fix</option>
+              <option value="Documentation">Documentation</option>
+              <option value="Other">Other</option>
+            </select>
+
+            <select
+              value={newTaskPriority}
+              onChange={(event) =>
+                setNewTaskPriority(event.target.value as Priority)
+              }
+              className="rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-3 text-sm text-white outline-none focus:border-emerald-400"
+            >
+              <option value="Low">Low priority</option>
+              <option value="Medium">Medium priority</option>
+              <option value="High">High priority</option>
+            </select>
+
             <button
               type="submit"
               disabled={saving || !userId}
@@ -212,6 +281,32 @@ export default function Dashboard() {
               {saving ? "Saving..." : "Add task +"}
             </button>
           </form>
+          <div className="mb-6 flex flex-col gap-3 sm:flex-row">
+            <select
+              value={categoryFilter}
+              onChange={(event) => setCategoryFilter(event.target.value)}
+              className="rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-3 text-sm text-white"
+            >
+              <option value="All">All categories</option>
+              <option value="Learning">Learning</option>
+              <option value="Frontend">Frontend</option>
+              <option value="Backend">Backend</option>
+              <option value="Bug Fix">Bug Fix</option>
+              <option value="Documentation">Documentation</option>
+              <option value="Other">Other</option>
+            </select>
+
+            <select
+              value={priorityFilter}
+              onChange={(event) => setPriorityFilter(event.target.value)}
+              className="rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-3 text-sm text-white"
+            >
+              <option value="All">All priorities</option>
+              <option value="High">High priority</option>
+              <option value="Medium">Medium priority</option>
+              <option value="Low">Low priority</option>
+            </select>
+          </div>
 
           {errorMessage && (
             <p role="alert" className="mb-4 text-sm text-red-400">
@@ -223,13 +318,13 @@ export default function Dashboard() {
             <p className="py-8 text-center text-sm text-zinc-400">
               Loading your tasks...
             </p>
-          ) : tasks.length === 0 ? (
+          ) : filteredTasks.length === 0 ? (
             <p className="py-8 text-center text-sm text-zinc-400">
               No tasks yet. Add your first one above.
             </p>
           ) : (
             <div className="space-y-3">
-              {tasks.map((task) => (
+              {filteredTasks.map((task) => (
                 <div
                   key={task.id}
                   className="flex items-center gap-4 rounded-xl border border-zinc-800 bg-zinc-950/70 p-4 transition hover:border-zinc-700"
@@ -243,15 +338,36 @@ export default function Dashboard() {
                     }`}
                     className="h-4 w-4 accent-emerald-400"
                   />
-                  <span
-                    className={`flex-1 text-sm ${
-                      task.completed
-                        ? "text-zinc-500 line-through"
-                        : "text-zinc-200"
-                    }`}
-                  >
-                    {task.title}
-                  </span>
+                  
+                  <div className="flex-1">
+                    <span
+                      className={`text-sm ${
+                        task.completed
+                          ? "text-zinc-500 line-through"
+                          : "text-zinc-200"
+                      }`}
+                    >
+                      {task.title}
+                    </span>
+
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <span className="rounded-full border border-zinc-700 px-2 py-1 text-xs text-zinc-300">
+                        {task.category}
+                      </span>
+
+                      <span
+                        className={`rounded-full px-2 py-1 text-xs ${
+                          task.priority === "High"
+                            ? "bg-red-500/10 text-red-400"
+                            : task.priority === "Medium"
+                              ? "bg-amber-500/10 text-amber-400"
+                              : "bg-emerald-500/10 text-emerald-400"
+                        }`}
+                      >
+                        {task.priority} priority
+                      </span>
+                    </div>
+                  </div>
                   <span className="text-xs text-zinc-500">
                     {task.completed ? "DONE" : "IN PROGRESS"}
                   </span>
